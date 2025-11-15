@@ -1,7 +1,11 @@
-#include<D3d12.h>
-#include<dxgi1_4.h>
+#include <d3d12.h>
+#include <dxgi1_4.h>
+#include <d3d12sdklayers.h>
 
-#pragma comment(lib,"dxgi.lib")
+#pragma comment(lib, "d3d12.lib")
+#pragma comment(lib, "dxgi.lib")
+#pragma comment(lib, "dxguid.lib")
+
 
 IDXGIFactory4* CreateDXGIFactory()
 {
