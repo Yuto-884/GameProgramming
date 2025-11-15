@@ -2,11 +2,11 @@
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	switch(uMsg)
+	switch (uMsg)
 	{
 	case WM_DESTROY:	//×ボタンが押されたとき
-			PostQuitMessage(0);	//「アプリを終了します」とWindowsに通知
-			return 0;
+		PostQuitMessage(0);	//「アプリを終了します」とWindowsに通知
+		return 0;
 	case WM_PAINT:	//ウィンドウの再描画が必要な時
 		//画面を更新する処理をここに書く
 		return 0;
@@ -37,7 +37,7 @@ int WINAPI WinMain(
 
 	RegisterClass(&wc);	//Windows1に登録
 
-//ウィンドウ作成
+	//ウィンドウ作成
 	HWND hwnd = CreateWindow(
 		"GameWindow",			//ウィンドウ名
 		"My Game",				//ウィンドウスタイル
@@ -51,7 +51,7 @@ int WINAPI WinMain(
 	ShowWindow(hwnd, nCmndShow);	//ウィンドウを表示
 
 
-//メッセージグループ
+	//メッセージグループ
 	MSG msg{};
 	while (GetMessage(&msg, NULL, 0, 0))	//メッセージが来るまでで待機
 	{
