@@ -50,6 +50,7 @@ int WINAPI WinMain(
 	);
 	ShowWindow(hwnd, nCmndShow);	//ウィンドウを表示
 
+
 //メッセージグループ
 	MSG msg{};
 	while (GetMessage(&msg, NULL, 0, 0))	//メッセージが来るまでで待機
