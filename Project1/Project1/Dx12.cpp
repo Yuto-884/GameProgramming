@@ -172,3 +172,4 @@ void Dx12::EnableDebugLayer() {
     }
 #endif
 }
+
