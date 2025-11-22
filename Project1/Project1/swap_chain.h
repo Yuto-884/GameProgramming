@@ -4,7 +4,7 @@
 
 #include "Dx12.h"
 #include "command_queue.h"
-//#include "../window/window.h"
+#include "window.h"
 
 //---------------------------------------------------------------------------------
 /**

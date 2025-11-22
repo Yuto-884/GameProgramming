@@ -143,7 +143,16 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="command_allocator.h" />
+    <ClInclude Include="command_list.h" />
+    <ClInclude Include="command_queue.h" />
+    <ClInclude Include="descriptor_heap.h" />
+    <ClInclude Include="device.h" />
     <ClInclude Include="Dx12.h" />
+    <ClInclude Include="fence.h" />
+    <ClInclude Include="render_target.h" />
+    <ClInclude Include="swap_chain.h" />
+    <ClInclude Include="window.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
