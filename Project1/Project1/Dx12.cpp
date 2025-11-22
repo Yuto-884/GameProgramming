@@ -1,5 +1,17 @@
 #include "Dx12.h"
 
+#include"command_allocator.h"
+#include"command_list.h"
+#include"command_queue.h"
+#include"descriptor_heap.h"
+#include"device.h"
+#include"Fence.h"
+#include"render_target.h"
+#include"swap_chain.h"
+
+
+#include<cassert>
+
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "dxguid.lib")
@@ -173,13 +185,301 @@ void Dx12::EnableDebugLayer() {
 #endif
 }
 
-bool Dx12::create (const Device& device, D3D12_DESCRIPTOR_HEAP_TYPE type, UINT numDescriptors, bool shaderVisible) noexcept {
-    // RTVディスクリプタヒープの作成例
-    D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
-    rtvHeapDesc.NumDescriptors = 2;  // スワップチェーンのバッファ数
-    rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-    rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+// -------------------------------------------------------------------------
+// -------------------------------------------------------------------------
 
-    ID3D12DescriptorHeap* rtvHeap;
-    device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&rtvHeap));
+DescriptorHeap::~DescriptorHeap() {
+    // ディスクリプタヒープの解放
+    if (heap_) {
+        heap_->Release();
+        heap_ = nullptr;
+    }
 }
+
+//---------------------------------------------------------------------------------
+/**
+ * @brief	ディスクリプタヒープを生成する
+ * @param	device	デバイスクラスのインスタンス
+ * @param	type	ディスクリプタヒープのタイプ
+ * @param	numDescriptors	ディスクリプタの数
+ * @param	shaderVisible	シェーダーからアクセス可能かどうか
+ * @return	生成の成否
+ */
+[[nodiscard]] bool DescriptorHeap::create(const Device& device, D3D12_DESCRIPTOR_HEAP_TYPE type, UINT numDescriptors, bool shaderVisible) noexcept {
+    // ヒープの設定
+    D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
+    heapDesc.Type = type;
+    heapDesc.NumDescriptors = numDescriptors;
+    heapDesc.Flags = shaderVisible ? D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE : D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+
+    type_ = type;  // ヒープのタイプを保存
+
+    // ディスクリプタヒープの生成
+    HRESULT hr = device.get()->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&heap_));
+    if (FAILED(hr)) {
+        assert(false && "ディスクリプタヒープの生成に失敗しました");
+        return false;
+    }
+
+    return true;
+}
+
+//---------------------------------------------------------------------------------
+/**
+ * @brief	ディスクリプタヒープを取得する
+ * @return	ディスクリプタヒープのポインタ
+ */
+[[nodiscard]] ID3D12DescriptorHeap* DescriptorHeap::get() const noexcept {
+    if (!heap_) {
+        assert(false && "ディスクリプタヒープが未生成です");
+        return nullptr;
+    }
+
+    return heap_;
+}
+
+//---------------------------------------------------------------------------------
+/**
+ * @brief	ディスクリプタヒープのタイプを取得する
+ * @return	ディスクリプタヒープのタイプ
+ */
+[[nodiscard]] D3D12_DESCRIPTOR_HEAP_TYPE DescriptorHeap::getType() const noexcept {
+    if (!heap_) {
+        assert(false && "ディスクリプタヒープが未生成です");
+    }
+    return type_;
+}
+
+// -------------------------------------------------------------------------
+// -------------------------------------------------------------------------
+    
+    RenderTarget::~RenderTarget() {
+        // レンダーターゲットリソースの解放
+        for (auto& rt : renderTargets_) {
+            if (rt) {
+                rt->Release();
+                rt = nullptr;
+            }
+        }
+        renderTargets_.clear();
+    }
+
+    //---------------------------------------------------------------------------------
+    /**
+     * @brief	バックバッファを生成する
+     * @param	device		デバイスクラスのインスタンス
+     * @param	swapChain	スワップチェインのポインタ
+     * @param	heap		ディスクリプターヒープのインスタンス
+     * @return	生成の成否
+     */
+    [[nodiscard]] bool RenderTarget::createBackBuffer(const Device& device, const SwapChain& swapChain, const DescriptorHeap& heap) noexcept {
+        // スワップチェインの設定を取得
+        const auto& desc = swapChain.getDesc();
+
+        // レンダーターゲットリソースのサイズを設定
+        renderTargets_.resize(desc.BufferCount);
+
+        // ディスクリプターヒープのハンドルを取得
+        auto handle = heap.get()->GetCPUDescriptorHandleForHeapStart();
+
+        // ディスクリプターヒープのタイプを取得
+        auto heapType = heap.getType();
+        assert(heapType == D3D12_DESCRIPTOR_HEAP_TYPE_RTV && "ディスクリプタヒープのタイプが RTV ではありません");
+
+        // バックバッファの生成
+        for (uint8_t i = 0; i < desc.BufferCount; ++i) {
+            const auto hr = swapChain.get()->GetBuffer(i, IID_PPV_ARGS(&renderTargets_[i]));
+            if (FAILED(hr)) {
+                assert(false && "バックバッファの取得に失敗しました");
+                return false;
+            }
+
+            // レンダーターゲットビューを作成してディスクリプタヒープのハンドルと関連付ける
+            device.get()->CreateRenderTargetView(renderTargets_[i], nullptr, handle);
+
+            // 次のハンドルへ移動
+            handle.ptr += device.get()->GetDescriptorHandleIncrementSize(heapType);
+        }
+
+        return true;
+    }
+
+    //---------------------------------------------------------------------------------
+    /**
+     * @brief	ビュー（ディスクリプタハンドル）を取得する
+     * @param	heap	ディスクリプタヒープのインスタンス
+     * @param	index	インデックス
+     * @return	ディスクリプタハンドル
+     */
+    [[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE RenderTarget::getDescriptorHandle(const Device& device, const DescriptorHeap& heap, UINT index) const noexcept {
+
+        if (index >= renderTargets_.size() || !renderTargets_[index]) {
+            assert(false && "不正なレンダーターゲットです");
+        }
+
+        // ディスクリプタヒープのハンドルを取得
+        auto handle = heap.get()->GetCPUDescriptorHandleForHeapStart();
+
+        // ディスクリプタヒープのタイプを取得
+        auto heapType = heap.getType();
+        assert(heapType == D3D12_DESCRIPTOR_HEAP_TYPE_RTV && "ディスクリプタヒープのタイプが RTV ではありません");
+
+        // インデックスに応じてハンドルを移動
+        handle.ptr += index * device.get()->GetDescriptorHandleIncrementSize(heapType);
+        return handle;
+    }
+
+    //---------------------------------------------------------------------------------
+    /**
+     * @brief	レンダーターゲットを取得する
+     * @param	index	インデックス
+     */
+    [[nodiscard]] ID3D12Resource* RenderTarget::get(uint32_t index) const noexcept {
+        if (index >= renderTargets_.size() || !renderTargets_[index]) {
+            assert(false && "不正なレンダーターゲットです");
+            return nullptr;
+        }
+        return renderTargets_[index];
+    }
+
+// -------------------------------------------------------------------------
+// -------------------------------------------------------------------------
+
+    // コマンドアロケータ制御クラス
+
+#include "command_allocator.h"
+#include <cassert>
+
+//---------------------------------------------------------------------------------
+/**
+ * @brief    デストラクタ
+ */
+    CommandAllocator::~CommandAllocator() {
+        // コマンドアロケータの解放
+        if (commandAllocator_) {
+            commandAllocator_->Release();
+            commandAllocator_ = nullptr;
+        }
+    }
+
+    //---------------------------------------------------------------------------------
+    /**
+     * @brief	コマンドキューの生成
+     * @param	device	デバイスクラスのインスタンス
+     * @return	成功すれば true
+     */
+    [[nodiscard]] bool CommandAllocator::create(const Device& device, const D3D12_COMMAND_LIST_TYPE type) noexcept {
+
+        // コマンドリストのタイプを設定
+        type_ = type;
+
+        // コマンドアロケータの生成
+        const auto hr = device.get()->CreateCommandAllocator(type_, IID_PPV_ARGS(&commandAllocator_));
+        if (FAILED(hr)) {
+            assert(false && "コマンドアロケータの作成に失敗しました");
+            return false;
+        }
+
+        return true;
+    }
+
+    //---------------------------------------------------------------------------------
+    /**
+     * @brief	コマンドアロケータをリセットする
+     */
+    void CommandAllocator::reset() noexcept {
+
+        if (!commandAllocator_) {
+            assert(false && "コマンドアロケータが未作成です");
+        }
+
+        commandAllocator_->Reset();
+    }
+
+
+    //---------------------------------------------------------------------------------
+    /**
+     * @brief	コマンドアロケータを取得する
+     * @return	コマンドアロケータのポインタ
+     */
+    [[nodiscard]] ID3D12CommandAllocator* CommandAllocator::get() const noexcept {
+        if (!commandAllocator_) {
+            assert(false && "コマンドアロケータが未作成です");
+            return nullptr;
+        }
+        return commandAllocator_;
+    }
+    //---------------------------------------------------------------------------------
+    /**
+     * @brief	コマンドリストのタイプを取得する
+     * @return	コマンドリストのタイプ
+     */
+    [[nodiscard]] D3D12_COMMAND_LIST_TYPE CommandAllocator::getType() const noexcept {
+        if (!commandAllocator_) {
+            assert(false && "コマンドリストのタイプが未設定です");
+        }
+        return type_;
+    }
+
+// -------------------------------------------------------------------------
+// -------------------------------------------------------------------------
+
+    Fence::~Fence() {
+        // フェンスの解放
+        if (fence_) {
+            fence_->Release();
+            fence_ = nullptr;
+        }
+    }
+
+    //---------------------------------------------------------------------------------
+    /**
+     * @brief	フェンスを作成する
+     */
+    [[nodiscard]] bool Fence::create(const Device& device) noexcept {
+
+        // フェンスの生成
+        HRESULT hr = device.get()->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence_));
+        if (FAILED(hr)) {
+            assert(false && "フェンスの作成に失敗しました");
+            return false;
+        }
+        // GPU 同期用のイベントハンドルを作成
+        waitGpuEvent_ = CreateEvent(nullptr, false, false, "WAIT_GPU");
+        if (!waitGpuEvent_) {
+            assert(false && "GPU 同期用のイベントハンドルの作成に失敗しました");
+            return false;
+        }
+        return true;
+    }
+
+    //---------------------------------------------------------------------------------
+    /**
+     * @brief	同期待ちを行う
+     * @param fenceValue	フェンス値
+     */
+    void Fence::wait(UINT64 fenceValue) const noexcept {
+        if (!fence_) {
+            assert(false && "フェンスが未作成です");
+            return;
+        }
+
+        // フェンスの値が指定された値に達するまで待機
+        if (fence_->GetCompletedValue() < fenceValue) {
+            // GPU がフェンス値に到達するまで待つ
+            fence_->SetEventOnCompletion(fenceValue, waitGpuEvent_);
+            WaitForSingleObject(waitGpuEvent_, INFINITE);
+        }
+    }
+
+    //---------------------------------------------------------------------------------
+    /**
+     * @brief	フェンスを取得する
+     */
+    [[nodiscard]] ID3D12Fence* Fence::get() const noexcept {
+        if (!fence_) {
+            assert(false && "フェンスが未作成です");
+            return nullptr;
+        }
+        return fence_;
+    }
