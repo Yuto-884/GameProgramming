@@ -139,8 +139,16 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="command_allocator.cpp" />
+    <ClCompile Include="command_list.cpp" />
+    <ClCompile Include="command_queue.cpp" />
+    <ClCompile Include="descriptor_heap.cpp" />
+    <ClCompile Include="device.cpp" />
     <ClCompile Include="Dx12.cpp" />
+    <ClCompile Include="fence.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="render_target.cpp" />
+    <ClCompile Include="swap_chain.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="command_allocator.h" />
