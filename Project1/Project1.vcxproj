@@ -147,9 +147,9 @@
     <ClCompile Include="Dx12.cpp" />
     <ClCompile Include="DXGI.cpp" />
     <ClCompile Include="fence.cpp" />
-    <ClCompile Include="main.cpp" />
     <ClCompile Include="render_target.cpp" />
     <ClCompile Include="swap_chain.cpp" />
+    <ClCompile Include="window.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="command_allocator.h" />
