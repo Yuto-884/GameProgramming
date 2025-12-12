@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "Dx12.h"
+#include "DXGI.h"
 #include <d3d12.h>
 
 //---------------------------------------------------------------------------------
@@ -26,10 +26,10 @@ public:
     //---------------------------------------------------------------------------------
     /**
      * @brief	デバイスを作成する
-	 * @param	dxgi	DXGI クラスのインスタンス
+     * @param	dxgi	DXGI クラスのインスタンス
      * @return	作成出来た場合は true
      */
-    [[nodiscard]] bool create(const Dx12& dxgi) noexcept;
+    [[nodiscard]] bool create(const DXGI& dxgi) noexcept;
 
     //---------------------------------------------------------------------------------
     /**

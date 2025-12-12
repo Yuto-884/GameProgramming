@@ -23,7 +23,7 @@ SwapChain::~SwapChain() {
  * @param	commandQueue	コマンドキュークラスのインスタンス
  * @return	生成の成否
  */
-[[nodiscard]] bool SwapChain::create(const Dx12& dxgi, const Window& window, const CommandQueue& commandQueue) noexcept {
+[[nodiscard]] bool SwapChain::create(const DXGI& dxgi, const Window& window, const CommandQueue& commandQueue) noexcept {
     // ウィンドウサイズを取得
     const auto [w, h] = window.size();
 

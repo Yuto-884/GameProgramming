@@ -40,4 +40,3 @@ public:
 private:
     ID3D12CommandQueue* commandQueue_{};  /// コマンドキュー
 };
-

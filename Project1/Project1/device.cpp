@@ -25,7 +25,7 @@ Device::~Device() {
  * @param	dxgi	DXGI クラスのインスタンス
  * @return	作成出来た場合は true
  */
-[[nodiscard]] bool Device::create(const Dx12& dxgi) noexcept {
+[[nodiscard]] bool Device::create(const DXGI& dxgi) noexcept {
     // デバイス作成
     const auto hr = D3D12CreateDevice(dxgi.displayAdapter(), D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&device_));
     if (FAILED(hr)) {
@@ -49,3 +49,4 @@ Device::~Device() {
 
     return device_;
 }
+

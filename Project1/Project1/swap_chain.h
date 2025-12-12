@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "Dx12.h"
+#include "DXGI.h"
 #include "command_queue.h"
-#include "window.h"
+#include "../window/window.h"
 
 //---------------------------------------------------------------------------------
 /**
@@ -32,7 +32,7 @@ public:
      * @param	commandQueue	コマンドキュークラスのインスタンス
      * @return	生成の成否
      */
-    [[nodiscard]] bool create(const Dx12& dxgi, const Window& window, const CommandQueue& commandQueue) noexcept;
+    [[nodiscard]] bool create(const DXGI& dxgi, const Window& window, const CommandQueue& commandQueue) noexcept;
 
     //---------------------------------------------------------------------------------
     /**
