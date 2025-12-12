@@ -116,3 +116,4 @@ DXGI::~DXGI() {
 
     return dxgiAdapter_;
 }
+
