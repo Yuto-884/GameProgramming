@@ -147,7 +147,11 @@
     <ClCompile Include="Dx12.cpp" />
     <ClCompile Include="DXGI.cpp" />
     <ClCompile Include="fence.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="pipline_state_object.cpp" />
     <ClCompile Include="render_target.cpp" />
+    <ClCompile Include="root_signature.cpp" />
+    <ClCompile Include="shader.cpp" />
     <ClCompile Include="swap_chain.cpp" />
     <ClCompile Include="window.cpp" />
   </ItemGroup>
@@ -160,7 +164,10 @@
     <ClInclude Include="Dx12.h" />
     <ClInclude Include="DXGI.h" />
     <ClInclude Include="fence.h" />
+    <ClInclude Include="pipline_state_object.h" />
     <ClInclude Include="render_target.h" />
+    <ClInclude Include="root_signature.h" />
+    <ClInclude Include="shader.h" />
     <ClInclude Include="swap_chain.h" />
     <ClInclude Include="window.h" />
   </ItemGroup>
