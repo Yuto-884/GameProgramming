@@ -1,5 +1,3 @@
-// シェーダクラス
-
 #include "shader.h"
 #include <cassert>
 #include <string>
@@ -7,42 +5,30 @@
 #include <D3Dcompiler.h>
 #pragma comment(lib, "d3dcompiler.lib")
 
-//---------------------------------------------------------------------------------
-/**
- * @brief    デストラクタ
- */
-Shader::~Shader() {
-    // 頂点シェーダの解放
+Shader::~Shader()
+{
     if (vertexShader_) {
         vertexShader_->Release();
         vertexShader_ = nullptr;
     }
-    // ピクセルシェーダの解放
     if (pixelShader_) {
         pixelShader_->Release();
         pixelShader_ = nullptr;
     }
 }
 
-//---------------------------------------------------------------------------------
-/**
- * @brief	シェーダを作成する
- * @param	device	デバイスクラスのインスタンス
- * @return	成功すれば true
- */
-[[nodiscard]] bool Shader::create(const Device& device) noexcept {
-    // シェーダを読込、コンパイルして生成する
+[[nodiscard]] bool Shader::create(const Device&) noexcept
+{
+    const wchar_t* filePath = L"asset/shader.hlsl";
 
-    // シェーダファイルのパス
-    const std::wstring filePath = L"asset/shader.hlsl";
-    const std::wstring temp = std::wstring(filePath.begin(), filePath.end());
-    // シェーダのコンパイルエラーなどが分かる様にする
-    ID3DBlob* error{};
+    ID3DBlob* error = nullptr;
+    HRESULT hr;
 
-    auto res = D3DCompileFromFile(
-        filePath.c_str(),
+    // ---------- Vertex Shader ----------
+    hr = D3DCompileFromFile(
+        filePath,
         nullptr,
-        nullptr,
+        D3D_COMPILE_STANDARD_FILE_INCLUDE,
         "vs",
         "vs_5_0",
         D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
@@ -51,32 +37,52 @@ Shader::~Shader() {
         &error
     );
 
+    if (FAILED(hr)) {
+        if (error) {
+            OutputDebugStringA((char*)error->GetBufferPointer());
+            error->Release();
+        }
+        assert(false && "Vertex Shader compile failed");
+        return false;
+    }
+
+    // ---------- Pixel Shader ----------
+    hr = D3DCompileFromFile(
+        filePath,
+        nullptr,
+        D3D_COMPILE_STANDARD_FILE_INCLUDE,
+        "ps",
+        "ps_5_0",
+        D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
+        0,
+        &pixelShader_,
+        &error
+    );
+
+    if (FAILED(hr)) {
+        if (error) {
+            OutputDebugStringA((char*)error->GetBufferPointer());
+            error->Release();
+        }
+        assert(false && "Pixel Shader compile failed");
+        return false;
+    }
+
+    if (error) {
+        error->Release();
+    }
 
     return true;
 }
 
-//---------------------------------------------------------------------------------
-/**
- * @brief	頂点シェーダを取得する
- * @return	頂点シェーダのデータ
- */
-[[nodiscard]] ID3DBlob* Shader::vertexShader() const noexcept {
-    if (!vertexShader_) {
-        assert(false && "頂点シェーダが未作成です");
-    }
-
+ID3DBlob* Shader::vertexShader() const noexcept
+{
+    assert(vertexShader_);
     return vertexShader_;
 }
 
-//---------------------------------------------------------------------------------
-/**
- * @brief	ピクセルシェーダを取得する
- * @return	ピクセルシェーダのデータ
- */
-[[nodiscard]] ID3DBlob* Shader::pixelShader() const noexcept {
-    if (!pixelShader_) {
-        assert(false && "ピクセルシェーダが未作成です");
-    }
-
+ID3DBlob* Shader::pixelShader() const noexcept
+{
+    assert(pixelShader_);
     return pixelShader_;
 }

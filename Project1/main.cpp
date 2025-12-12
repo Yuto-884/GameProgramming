@@ -95,19 +95,67 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
         commandAllocator.reset();
         commandList.reset(commandAllocator);
 
+        // ★いま描画すべきバックバッファ
+        UINT backIndex = swapChain.get()->GetCurrentBackBufferIndex();
+
+        // ★PRESENT -> RENDER_TARGET
+        {
+            D3D12_RESOURCE_BARRIER barrier{};
+            barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+            barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+            barrier.Transition.pResource = renderTarget.get(backIndex);
+            barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+            barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+            barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+            commandList.get()->ResourceBarrier(1, &barrier);
+        }
+
         commandList.get()->SetGraphicsRootSignature(rootSignature.get());
         commandList.get()->SetPipelineState(pipeline.get());
 
-        auto rtv = renderTarget.getDescriptorHandle(device, rtvHeap, 0);
+        // ★Viewport / Scissor（これ無いと出ない事ある）
+        {
+            auto [w, h] = window.size();
+            D3D12_VIEWPORT vp{};
+            vp.Width = (float)w;
+            vp.Height = (float)h;
+            vp.MinDepth = 0.0f;
+            vp.MaxDepth = 1.0f;
+
+            D3D12_RECT sc{};
+            sc.left = 0;
+            sc.top = 0;
+            sc.right = w;
+            sc.bottom = h;
+
+            commandList.get()->RSSetViewports(1, &vp);
+            commandList.get()->RSSetScissorRects(1, &sc);
+        }
+
+        // ★RTV は backIndex に合わせる
+        auto rtv = renderTarget.getDescriptorHandle(device, rtvHeap, backIndex);
         commandList.get()->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
 
         float clearColor[] = { 0.1f, 0.1f, 0.3f, 1.0f };
         commandList.get()->ClearRenderTargetView(rtv, clearColor, 0, nullptr);
 
+        // ★Draw
         auto vbView = vertexBuffer.view();
         commandList.get()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         commandList.get()->IASetVertexBuffers(0, 1, &vbView);
         commandList.get()->DrawInstanced(3, 1, 0, 0);
+
+        // ★RENDER_TARGET -> PRESENT
+        {
+            D3D12_RESOURCE_BARRIER barrier{};
+            barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+            barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+            barrier.Transition.pResource = renderTarget.get(backIndex);
+            barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+            barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+            barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+            commandList.get()->ResourceBarrier(1, &barrier);
+        }
 
         commandList.get()->Close();
 
@@ -117,5 +165,4 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
         swapChain.get()->Present(1, 0);
     }
 
-    return 0;
 }
