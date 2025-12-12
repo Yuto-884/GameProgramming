@@ -1,4 +1,5 @@
 #include <Windows.h>
+#include <d3d12.h>
 
 #include "window.h"
 #include "DXGI.h"
@@ -14,13 +15,22 @@
 #include "pipline_state_object.h"
 #include "vertex_buffer.h"
 
+// ちょい便利：失敗したら即終了
+static void Die(const char* msg)
+{
+    MessageBoxA(nullptr, msg, "DX12 Error", MB_OK | MB_ICONERROR);
+    ExitProcess(1);
+}
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 {
     // --------------------
     // Window
     // --------------------
     Window window;
-    window.create(hInstance, 1280, 720, "Game");
+    if (FAILED(window.create(hInstance, 1280, 720, "Game"))) {
+        Die("Window::create failed");
+    }
 
     // --------------------
     // DXGI / Device
@@ -29,46 +39,66 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
     dxgi.setDisplayAdapter();
 
     Device device;
-    device.create(dxgi);
+    if (!device.create(dxgi)) {
+        Die("Device::create failed");
+    }
 
     // --------------------
     // Command Queue / Allocator / List
     // --------------------
     CommandQueue commandQueue;
-    commandQueue.create(device);
+    if (!commandQueue.create(device)) {
+        Die("CommandQueue::create failed");
+    }
 
     CommandAllocator commandAllocator;
-    commandAllocator.create(device, D3D12_COMMAND_LIST_TYPE_DIRECT);
+    if (!commandAllocator.create(device, D3D12_COMMAND_LIST_TYPE_DIRECT)) {
+        Die("CommandAllocator::create failed");
+    }
 
     CommandList commandList;
-    commandList.create(device, commandAllocator);
+    if (!commandList.create(device, commandAllocator)) {
+        Die("CommandList::create failed");
+    }
 
     // --------------------
     // SwapChain
     // --------------------
     SwapChain swapChain;
-    swapChain.create(dxgi, window, commandQueue);
+    if (!swapChain.create(dxgi, window, commandQueue)) {
+        Die("SwapChain::create failed");
+    }
 
     // --------------------
-    // RTV Heap
+    // RTV Heap / BackBuffer
     // --------------------
     DescriptorHeap rtvHeap;
-    rtvHeap.create(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 2);
+    if (!rtvHeap.create(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 2)) {
+        Die("DescriptorHeap(RTV)::create failed");
+    }
 
     RenderTarget renderTarget;
-    renderTarget.createBackBuffer(device, swapChain, rtvHeap);
+    if (!renderTarget.createBackBuffer(device, swapChain, rtvHeap)) {
+        Die("RenderTarget::createBackBuffer failed");
+    }
 
     // --------------------
     // RootSignature / Shader / Pipeline
     // --------------------
     RootSignature rootSignature;
-    rootSignature.create(device);
+    if (!rootSignature.create(device)) {
+        Die("RootSignature::create failed");
+    }
 
     Shader shader;
-    shader.create(device);
+    if (!shader.create(device)) {
+        Die("Shader::create failed (shader.hlsl path?)");
+    }
 
     PiplineStateObject pipeline;
-    pipeline.create(device, shader, rootSignature);
+    if (!pipeline.create(device, shader, rootSignature)) {
+        Die("PiplineStateObject::create failed");
+    }
 
     // --------------------
     // Vertex Buffer
@@ -85,77 +115,81 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
     };
 
     VertexBuffer vertexBuffer;
-    vertexBuffer.create(device, triangle, 3, sizeof(Vertex));
+    if (!vertexBuffer.create(device, triangle, 3, sizeof(Vertex))) {
+        Die("VertexBuffer::create failed");
+    }
+
+    // --------------------
+    // Fence (GPU同期) ★これ無いと落ちやすい
+    // --------------------
+    ID3D12Fence* fence = nullptr;
+    UINT64 fenceValue = 0;
+    HANDLE fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+    if (!fenceEvent) Die("CreateEvent failed");
+
+    HRESULT hr = device.get()->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
+    if (FAILED(hr) || !fence) Die("CreateFence failed");
 
     // --------------------
     // Main Loop
     // --------------------
     while (window.messageLoop())
     {
+        // GPUが前フレーム終わるまで待つ
+        if (fence->GetCompletedValue() < fenceValue) {
+            fence->SetEventOnCompletion(fenceValue, fenceEvent);
+            WaitForSingleObject(fenceEvent, INFINITE);
+        }
+
+        const UINT backIndex = swapChain.get()->GetCurrentBackBufferIndex();
+        ID3D12Resource* backBuffer = renderTarget.get(backIndex);
+        auto rtv = renderTarget.getDescriptorHandle(device, rtvHeap, backIndex);
+
         commandAllocator.reset();
         commandList.reset(commandAllocator);
 
-        // ★いま描画すべきバックバッファ
-        UINT backIndex = swapChain.get()->GetCurrentBackBufferIndex();
-
-        // ★PRESENT -> RENDER_TARGET
-        {
-            D3D12_RESOURCE_BARRIER barrier{};
-            barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-            barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-            barrier.Transition.pResource = renderTarget.get(backIndex);
-            barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-            barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-            barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-            commandList.get()->ResourceBarrier(1, &barrier);
-        }
+        // Present -> RenderTarget
+        D3D12_RESOURCE_BARRIER toRT{};
+        toRT.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        toRT.Transition.pResource = backBuffer;
+        toRT.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+        toRT.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+        toRT.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        commandList.get()->ResourceBarrier(1, &toRT);
 
         commandList.get()->SetGraphicsRootSignature(rootSignature.get());
         commandList.get()->SetPipelineState(pipeline.get());
 
-        // ★Viewport / Scissor（これ無いと出ない事ある）
-        {
-            auto [w, h] = window.size();
-            D3D12_VIEWPORT vp{};
-            vp.Width = (float)w;
-            vp.Height = (float)h;
-            vp.MinDepth = 0.0f;
-            vp.MaxDepth = 1.0f;
+        // viewport / scissor
+        auto [w, h] = window.size();
+        D3D12_VIEWPORT viewport{};
+        viewport.Width = (float)w;
+        viewport.Height = (float)h;
+        viewport.MinDepth = 0.0f;
+        viewport.MaxDepth = 1.0f;
 
-            D3D12_RECT sc{};
-            sc.left = 0;
-            sc.top = 0;
-            sc.right = w;
-            sc.bottom = h;
+        D3D12_RECT scissor{};
+        scissor.right = w;
+        scissor.bottom = h;
 
-            commandList.get()->RSSetViewports(1, &vp);
-            commandList.get()->RSSetScissorRects(1, &sc);
-        }
+        commandList.get()->RSSetViewports(1, &viewport);
+        commandList.get()->RSSetScissorRects(1, &scissor);
 
-        // ★RTV は backIndex に合わせる
-        auto rtv = renderTarget.getDescriptorHandle(device, rtvHeap, backIndex);
         commandList.get()->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
 
         float clearColor[] = { 0.1f, 0.1f, 0.3f, 1.0f };
         commandList.get()->ClearRenderTargetView(rtv, clearColor, 0, nullptr);
 
-        // ★Draw
         auto vbView = vertexBuffer.view();
         commandList.get()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         commandList.get()->IASetVertexBuffers(0, 1, &vbView);
         commandList.get()->DrawInstanced(3, 1, 0, 0);
 
-        // ★RENDER_TARGET -> PRESENT
-        {
-            D3D12_RESOURCE_BARRIER barrier{};
-            barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-            barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-            barrier.Transition.pResource = renderTarget.get(backIndex);
-            barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-            barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-            barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
-            commandList.get()->ResourceBarrier(1, &barrier);
-        }
+        // RenderTarget -> Present
+        D3D12_RESOURCE_BARRIER toPresent = toRT;
+        toPresent.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+        toPresent.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+        commandList.get()->ResourceBarrier(1, &toPresent);
 
         commandList.get()->Close();
 
@@ -163,6 +197,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
         commandQueue.get()->ExecuteCommandLists(1, lists);
 
         swapChain.get()->Present(1, 0);
+
+        // GPUに「ここまで終わったら値を進めろ」って指示
+        fenceValue++;
+        commandQueue.get()->Signal(fence, fenceValue);
     }
 
+    // 後始末
+    if (fence) fence->Release();
+    if (fenceEvent) CloseHandle(fenceEvent);
+
+    return 0;
 }
+
