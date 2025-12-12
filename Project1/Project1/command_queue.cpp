@@ -50,3 +50,4 @@ CommandQueue::~CommandQueue() {
     }
     return commandQueue_;
 }
+

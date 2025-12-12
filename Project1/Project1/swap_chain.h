@@ -4,7 +4,7 @@
 
 #include "DXGI.h"
 #include "command_queue.h"
-#include "../window/window.h"
+#include "window.h"
 
 //---------------------------------------------------------------------------------
 /**

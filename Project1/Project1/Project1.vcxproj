@@ -145,6 +145,7 @@
     <ClCompile Include="descriptor_heap.cpp" />
     <ClCompile Include="device.cpp" />
     <ClCompile Include="Dx12.cpp" />
+    <ClCompile Include="DXGI.cpp" />
     <ClCompile Include="fence.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="render_target.cpp" />
@@ -157,6 +158,7 @@
     <ClInclude Include="descriptor_heap.h" />
     <ClInclude Include="device.h" />
     <ClInclude Include="Dx12.h" />
+    <ClInclude Include="DXGI.h" />
     <ClInclude Include="fence.h" />
     <ClInclude Include="render_target.h" />
     <ClInclude Include="swap_chain.h" />
