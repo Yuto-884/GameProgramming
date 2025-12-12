@@ -34,25 +34,23 @@ Shader::~Shader() {
     // シェーダを読込、コンパイルして生成する
 
     // シェーダファイルのパス
-    const std::string  filePath = "asset/shader.hlsl";
+    const std::wstring filePath = L"asset/shader.hlsl";
     const std::wstring temp = std::wstring(filePath.begin(), filePath.end());
     // シェーダのコンパイルエラーなどが分かる様にする
     ID3DBlob* error{};
 
-    auto res = D3DCompileFromFile(temp.data(), nullptr, nullptr, "vs", "vs_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, 0, &vertexShader_, &error);
-    if (FAILED(res)) {
-        char* p = static_cast<char*>(error->GetBufferPointer());
-        assert(false && "頂点シェーダのコンパイルに失敗しました");
-    }
-    res = D3DCompileFromFile(temp.data(), nullptr, nullptr, "ps", "ps_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, 0, &pixelShader_, &error);
-    if (FAILED(res)) {
-        char* p = static_cast<char*>(error->GetBufferPointer());
-        assert(false && "ピクセルシェーダのコンパイルに失敗しました");
-    }
+    auto res = D3DCompileFromFile(
+        filePath.c_str(),
+        nullptr,
+        nullptr,
+        "vs",
+        "vs_5_0",
+        D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
+        0,
+        &vertexShader_,
+        &error
+    );
 
-    if (error) {
-        error->Release();
-    }
 
     return true;
 }
