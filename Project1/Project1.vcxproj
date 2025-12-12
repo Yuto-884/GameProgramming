@@ -142,6 +142,8 @@
     <ClCompile Include="command_allocator.cpp" />
     <ClCompile Include="command_list.cpp" />
     <ClCompile Include="command_queue.cpp" />
+    <ClCompile Include="constant_buffer.cpp" />
+    <ClCompile Include="depth_buffer.cpp" />
     <ClCompile Include="descriptor_heap.cpp" />
     <ClCompile Include="device.cpp" />
     <ClCompile Include="Dx12.cpp" />
@@ -153,12 +155,15 @@
     <ClCompile Include="root_signature.cpp" />
     <ClCompile Include="shader.cpp" />
     <ClCompile Include="swap_chain.cpp" />
+    <ClCompile Include="vertex_buffer.cpp" />
     <ClCompile Include="window.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="command_allocator.h" />
     <ClInclude Include="command_list.h" />
     <ClInclude Include="command_queue.h" />
+    <ClInclude Include="constant_buffer.h" />
+    <ClInclude Include="depth_buffer.h" />
     <ClInclude Include="descriptor_heap.h" />
     <ClInclude Include="device.h" />
     <ClInclude Include="Dx12.h" />
@@ -169,6 +174,7 @@
     <ClInclude Include="root_signature.h" />
     <ClInclude Include="shader.h" />
     <ClInclude Include="swap_chain.h" />
+    <ClInclude Include="vertex_buffer.h" />
     <ClInclude Include="window.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
